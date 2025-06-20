@@ -140,7 +140,7 @@ async def leaderboard(ctx):
     leaderboard_msg = "**Leaderboard:**\n"
     for i, (name, honor) in enumerate(top_members, start=1):
         emoji = "<:highhonor:1283293149644456071>" if honor >= 0 else "<:lowhonor:1283293077884239913>"
-        leaderboard_msg += f"{emoji} {i}. {name}\n"
+        leaderboard_msg += f"{emoji} **{i}. {name}** for {honor} honor\n"
 
     await ctx.send(leaderboard_msg)
 
