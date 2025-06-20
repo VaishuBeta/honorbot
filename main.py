@@ -167,8 +167,11 @@ async def reset_honor(ctx):
 
 @bot.event
 async def on_message(message):
+    if message.author.bot:
+        return  # ignore messages from any bot, including itself
+
     print(f"Message from {message.author}: {message.content}")
-    await bot.process_commands(message)  # important to allow commands to work
+    await bot.process_commands(message)
 
 @honor.error
 async def honor_error(ctx, error):
