@@ -151,4 +151,7 @@ async def honor_error(ctx, error):
     else:
         await ctx.send("An error occurred.")
 
-bot.run(BotToken)
+try:
+    bot.run(os.getenv("BotToken"))
+except Exception as e:
+    print("Error on startup:", e)
