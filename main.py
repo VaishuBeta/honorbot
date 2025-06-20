@@ -11,7 +11,6 @@ intents.guilds = True
 intents.members = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
-bot.run(os.getenv("BotToken"))
 
 # In-memory storage for honor (user_id -> honor)
 honor_stats = {}
