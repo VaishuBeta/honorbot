@@ -60,7 +60,7 @@ async def honor(ctx, *args):
         return
 
     try:
-        reason = string(args[2])
+        reason = str(args[2])
     except:
         reason = ""
 
@@ -90,10 +90,12 @@ async def honor(ctx, *args):
     else:
         honor_stats[member.id] = old + amount
     #'''
-    honor_stats[member.id] = old + amount
+    #honor_stats[member.id] = old + amount
     emojiToUse = "highhonor"
     if amount > 0: emojiToUse = "<:highhonor:1283293149644456071> +"
     if amount < 0: emojiToUse = "<:lowhonor:1283293077884239913> "
+
+    reason = " ".join(args[2:]) if len(args) > 2 else ""
 
     if reason == "":
         await ctx.send("**" + emojiToUse + str(amount) + " honor" + "**" + " for " + f"{member.display_name}")
