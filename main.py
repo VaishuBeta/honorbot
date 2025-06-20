@@ -18,6 +18,18 @@ honor_stats = {}
 @bot.event
 async def on_ready():
     print(f"Logged in as {bot.user}")
+    print("Commands loaded:", list(bot.commands))
+
+@bot.event
+async def on_message(message):
+    if message.author.bot:
+        return
+
+    # Prevent handling non-command messages (optional, if needed)
+    if not message.content.startswith("!"):
+        return
+
+    await bot.process_commands(message)
 
 @bot.command()
 async def honor(ctx, *args):
@@ -164,14 +176,6 @@ async def reset_honor(ctx):
             await ctx.send("Reset cancelled.")
     except asyncio.TimeoutError:
         await ctx.send("Timed out. Reset cancelled.")
-
-@bot.event
-async def on_message(message):
-    if message.author.bot:
-        return  # ignore messages from any bot, including itself
-
-    print(f"Message from {message.author}: {message.content}")
-    await bot.process_commands(message)
 
 @honor.error
 async def honor_error(ctx, error):
