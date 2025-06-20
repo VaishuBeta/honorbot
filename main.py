@@ -5,22 +5,20 @@ import os
 import asyncio
 
 ######## WEB SERVICE FOR RENDER ########
+import threading
 from aiohttp import web
-import os
 
+# Web server for Render
 async def handle(request):
     return web.Response(text="Bot is running!")
 
-app = web.Application()
-app.add_routes([web.get("/", handle)])
-
-import threading
-
 def run_web():
     port = int(os.environ.get("PORT", 8000))
+    app = web.Application()
+    app.add_routes([web.get("/", handle)])
     web.run_app(app, port=port)
 
-import threading
+# Start the web server in a separate thread
 threading.Thread(target=run_web, daemon=True).start()
 ######## END OF COMMENT TAG ########
 
