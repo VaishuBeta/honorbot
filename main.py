@@ -4,6 +4,26 @@ import math
 import os
 import asyncio
 
+######## WEB SERVICE FOR RENDER ########
+from aiohttp import web
+import os
+
+async def handle(request):
+    return web.Response(text="Bot is running!")
+
+app = web.Application()
+app.add_routes([web.get("/", handle)])
+
+import threading
+
+def run_web():
+    port = int(os.environ.get("PORT", 8000))
+    web.run_app(app, port=port)
+
+import threading
+threading.Thread(target=run_web, daemon=True).start()
+######## END OF COMMENT TAG ########
+
 # Enable all needed intents
 intents = discord.Intents.default()
 intents.message_content = True
