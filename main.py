@@ -100,6 +100,35 @@ async def honor(ctx, *args):
     elif reason != "":
         await ctx.send("**" + emojiToUse + str(amount) + " honor" + "**" + " for " + f"{member.display_name}" + " for " + reason)
 
+@bot.command()
+async def leaderboard(ctx):
+    if not honor_stats:
+        await ctx.send("No honor has been given yet.")
+        return
+
+    # Sort users by honor in descending order
+    sorted_stats = sorted(honor_stats.items(), key=lambda x: x[1], reverse=True)
+
+    # Keep only users that are in this server (to avoid showing users from other servers)
+    top_members = []
+    for user_id, honor in sorted_stats:
+        member = ctx.guild.get_member(user_id)
+        if member:
+            top_members.append((member.display_name, honor))
+        if len(top_members) == 5:
+            break
+
+    if not top_members:
+        await ctx.send("No leaderboard entries found for this server.")
+        return
+
+    # Build the leaderboard message
+    leaderboard_msg = "**Leaderboard:**\n"
+    for i, (name, honor) in enumerate(top_members, start=1):
+        emoji = "<:highhonor:1283293149644456071>" if honor >= 0 else "<:lowhonor:1283293077884239913>"
+        leaderboard_msg += f"{emoji} {i}. {name}\n"
+
+    await ctx.send(leaderboard_msg)
 
 @bot.command()
 async def horsey(ctx):
