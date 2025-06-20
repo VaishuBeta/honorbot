@@ -16,7 +16,7 @@ def run_web():
     port = int(os.environ.get("PORT", 8000))
     app = web.Application()
     app.add_routes([web.get("/", handle)])
-    web.run_app(app, port=port)
+    web.run_app(app, port=port, handle_signals=False)
 
 # Start the web server in a separate thread
 threading.Thread(target=run_web, daemon=True).start()
