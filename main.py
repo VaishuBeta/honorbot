@@ -4,6 +4,8 @@ import math
 import os
 import asyncio
 
+bot.run(os.getenv("BotToken"))
+
 # Enable all needed intents
 intents = discord.Intents.default()
 intents.message_content = True
@@ -150,4 +152,4 @@ async def honor_error(ctx, error):
     else:
         await ctx.send("An error occurred.")
 
-bot.run('MTM4NDY5OTUwOTc0NTEyMzQxOQ.GPcPm5.bA-jwgU0pb9_MuvUFx3k6LpBW6KllXuiBIvMXE')
+bot.run(BotToken)
