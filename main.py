@@ -4,8 +4,6 @@ import math
 import os
 import asyncio
 
-bot.run(os.getenv("BotToken"))
-
 # Enable all needed intents
 intents = discord.Intents.default()
 intents.message_content = True
@@ -13,6 +11,7 @@ intents.guilds = True
 intents.members = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
+bot.run(os.getenv("BotToken"))
 
 # In-memory storage for honor (user_id -> honor)
 honor_stats = {}
