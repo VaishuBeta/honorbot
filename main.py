@@ -205,8 +205,8 @@ async def honor_error(ctx, error):
         await ctx.send("Invalid format. Make sure to tag a user and use a valid number.")
     else:
         await ctx.send("An error occurred.")
-
-try:
-    bot.run(os.getenv("BotToken"))
-except Exception as e:
-    print("Error on startup:", e)
+def start_bot():
+    try:
+        bot.run(os.getenv("BotToken"))
+    except Exception as e:
+        print("Error on startup:", e)
