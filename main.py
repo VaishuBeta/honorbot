@@ -33,10 +33,32 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 # In-memory storage for honor (user_id -> honor)
 honor_stats = {}
 
+@tasks.loop(minutes=4)
+async def keep_alive_task():
+    print("Running keep-alive task to maintain connection...")
+
+@keep_alive_task.before_loop
+async def before_keep_alive():
+    await bot.wait_until_ready()
+
 @bot.event
 async def on_ready():
     print(f"Logged in as {bot.user}")
     print("Commands loaded:", list(bot.commands))
+
+@bot.event
+async def on_disconnect():
+    print("Warning: Bot disconnected from Discord!")
+
+@bot.event
+async def on_resumed():
+    print("Bot resumed connection to Discord!")
+
+@bot.event
+async def on_error(event_method, *args, **kwargs):
+    print(f"Error in {event_method}:")
+    import traceback
+    traceback.print_exc()
 
 @bot.event
 async def on_message(message):
