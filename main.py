@@ -36,7 +36,6 @@ def load_honor_data():
     if os.path.isfile(HONOR_FILE):
         with open(HONOR_FILE, "r") as f:
             raw = json.load(f)
-            # Convert keys back to int (JSON keys are strings)
             return {int(k): v for k, v in raw.items()}
     return {}
 
@@ -105,12 +104,11 @@ async def honor(ctx, *args):
             elif points < 0:
                 currMessage += "<:lowhonor:1283293077884239913>"
         for i in range(10 - emojiNum):
-            currMessage += "⚫"
+            currMessage += "\u26AB"
 
         await ctx.send(f"{member.display_name} has **{points} honor:** {currMessage}")
         return
 
-    # Else assume modify command
     if len(args) < 2:
         await ctx.send("No, you have to use `!honor @user amount`")
         return
@@ -161,30 +159,29 @@ async def honor(ctx, *args):
         await ctx.send(f"**{emojiToUse}{amount} honor** for {member.display_name} for {reason}")
 
 @bot.command()
-async def leaderboard(ctx, number: str = "5", sort_order: str = "high", *args):
-    # Parse number argument
-    if number.lower() == "all":
-        limit = None
-    else:
-        try:
-            limit = int(number)
-            if limit <= 0:
-                await ctx.send("Number of entries must be positive.")
+async def leaderboard(ctx, *args):
+    # Defaults
+    limit = 5
+    sort_order = "high"
+    skip_zero = False
+
+    # Parse args
+    for arg in args:
+        arg = arg.lower()
+        if arg == "skip":
+            skip_zero = True
+        elif arg in ("high", "low"):
+            sort_order = arg
+        elif arg == "all":
+            limit = None
+        else:
+            try:
+                limit = int(arg)
+            except ValueError:
+                await ctx.send(f"Invalid argument `{arg}`. Use a number, 'all', 'high', 'low', or 'skip'.")
                 return
-        except ValueError:
-            await ctx.send("Invalid number argument. Use a positive integer or 'all'.")
-            return
 
-    # Parse sort order
-    sort_order = sort_order.lower()
-    if sort_order not in ("high", "low"):
-        await ctx.send("Sort order must be 'high' or 'low'.")
-        return
-
-    # Check if skip argument present anywhere in args
-    skip_zero = "skip" in [arg.lower() for arg in args]
-
-    # Filter honor_stats for members in this guild
+    # Filter and sort honor data
     members_with_honor = []
     for user_id, honor in honor_stats.items():
         member = ctx.guild.get_member(user_id)
@@ -197,15 +194,12 @@ async def leaderboard(ctx, number: str = "5", sort_order: str = "high", *args):
         await ctx.send("No leaderboard entries found for this server.")
         return
 
-    # Sort the list
-    reverse = True if sort_order == "high" else False
-    members_with_honor.sort(key=lambda x: x[1], reverse=reverse)
+    members_with_honor.sort(key=lambda x: x[1], reverse=(sort_order == "high"))
 
-    # Apply limit if not None
     if limit is not None:
         members_with_honor = members_with_honor[:limit]
 
-    # Build leaderboard message
+    # Build message
     leaderboard_msg = "**Leaderboard:**\n"
     for i, (name, honor) in enumerate(members_with_honor, start=1):
         emoji = "<:highhonor:1283293149644456071>" if honor >= 0 else "<:lowhonor:1283293077884239913>"
