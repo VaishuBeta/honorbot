@@ -160,28 +160,26 @@ async def honor(ctx, *args):
 
 @bot.command()
 async def leaderboard(ctx, *args):
-    # Defaults
-    limit = 5
-    sort_order = "high"
+    limit = 5           # default
+    sort_order = "high" # default
     skip_zero = False
 
-    # Parse args
     for arg in args:
-        arg = arg.lower()
-        if arg == "skip":
+        if arg.lower() == "skip":
             skip_zero = True
-        elif arg in ("high", "low"):
-            sort_order = arg
-        elif arg == "all":
+        elif arg.lower() in ("high", "low"):
+            sort_order = arg.lower()
+        elif arg.lower() == "all":
             limit = None
         else:
             try:
-                limit = int(arg)
+                parsed = int(arg)
+                if parsed > 0:
+                    limit = parsed
             except ValueError:
-                await ctx.send(f"Invalid argument `{arg}`. Use a number, 'all', 'high', 'low', or 'skip'.")
-                return
+                pass  # ignore unknown args
 
-    # Filter and sort honor data
+    # Filter honor_stats for members in this guild
     members_with_honor = []
     for user_id, honor in honor_stats.items():
         member = ctx.guild.get_member(user_id)
@@ -194,12 +192,13 @@ async def leaderboard(ctx, *args):
         await ctx.send("No leaderboard entries found for this server.")
         return
 
-    members_with_honor.sort(key=lambda x: x[1], reverse=(sort_order == "high"))
+    # Sort the list
+    reverse = sort_order == "high"
+    members_with_honor.sort(key=lambda x: x[1], reverse=reverse)
 
     if limit is not None:
         members_with_honor = members_with_honor[:limit]
 
-    # Build message
     leaderboard_msg = "**Leaderboard:**\n"
     for i, (name, honor) in enumerate(members_with_honor, start=1):
         emoji = "<:highhonor:1283293149644456071>" if honor >= 0 else "<:lowhonor:1283293077884239913>"
@@ -212,8 +211,27 @@ async def horsey(ctx):
     await ctx.send("i <3 my horsey and my horsey <3 me")
 
 @bot.command()
-async def howtouse(ctx):
-    await ctx.send("Use `!honor @user amount` to raise or reduce someone's honor. \nUse `!honor check @user` to see someone's honor standing.")
+async def help(ctx):
+    await ctx.send("Use `!honor @user amount` to raise or reduce someone's honor (mods only).\n Use `!honor check @user` to see someone's honor standing.\n Use !leaderboard to see the honor leaderboard.")
+
+@bot.command(name="exporthonor")
+@commands.is_owner()
+async def export_honor(ctx):
+    if not honor_stats:
+        await ctx.send("No honor data to export.")
+        return
+
+    try:
+        # Dump honor stats into a JSON file
+        with open("honor_export.json", "w") as f:
+            json.dump(honor_stats, f, indent=4)
+
+        await ctx.send("Here is the exported honor data:", file=discord.File("honor_export.json"))
+
+    except Exception as e:
+        await ctx.send("Failed to export honor data.")
+        print("Export error:", e)
+
 
 @bot.command(name="resethonor")
 @commands.has_role("Mod")
