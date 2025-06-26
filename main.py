@@ -211,7 +211,7 @@ async def horsey(ctx):
     await ctx.send("i <3 my horsey and my horsey <3 me")
 
 @bot.command()
-async def help(ctx):
+async def howtouse(ctx):
     await ctx.send("Use `!honor @user amount` to raise or reduce someone's honor (mods only).\n Use `!honor check @user` to see someone's honor standing.\n Use !leaderboard to see the honor leaderboard.")
 
 @bot.command(name="exporthonor")
