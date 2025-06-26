@@ -223,10 +223,10 @@ async def export_honor(ctx):
 
     try:
         # Dump honor stats into a JSON file
-        with open("honor_export.json", "w") as f:
+        with open("honor_data.json", "w") as f:
             json.dump(honor_stats, f, indent=4)
 
-        await ctx.send("Here is the exported honor data:", file=discord.File("honor_export.json"))
+        await ctx.send("Here is the exported honor data:", file=discord.File("honor_data.json"))
 
     except Exception as e:
         await ctx.send("Failed to export honor data.")
