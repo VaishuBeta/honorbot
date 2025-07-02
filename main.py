@@ -137,13 +137,13 @@ async def honor(ctx, *args):
     old = honor_stats.get(member.id, 0)
     new_honor = old + amount
 
-    if new_honor > 1000:
-        honor_stats[member.id] = 1000
+    if new_honor > 500:
+        honor_stats[member.id] = 500
         await ctx.send("**<:highhonor:1283293149644456071> Highest honor reached.**")
         save_honor_data(honor_stats)
         return
-    elif new_honor < -1000:
-        honor_stats[member.id] = -1000
+    elif new_honor < -500:
+        honor_stats[member.id] = -500
         await ctx.send("**<:lowhonor:1283293077884239913> Lowest honor reached.**")
         save_honor_data(honor_stats)
         return
