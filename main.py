@@ -6,6 +6,7 @@ import asyncio
 import json
 import threading
 from aiohttp import web
+from datetime import datetime, timedelta
 
 ######## WEB SERVICE FOR RENDER ########
 async def handle(request):
@@ -17,11 +18,9 @@ def run_web():
     app.add_routes([web.get("/", handle)])
     web.run_app(app, port=port, handle_signals=False)
 
-# Start the web server in a separate thread
 threading.Thread(target=run_web, daemon=True).start()
 ######## END OF COMMENT TAG ########
 
-# Enable all needed intents
 intents = discord.Intents.default()
 intents.message_content = True
 intents.guilds = True
@@ -30,6 +29,7 @@ intents.members = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 HONOR_FILE = "honor_data.json"
+JUDGEMENT_LIMIT = 5  # max judgments per day
 
 # Load honor data from file
 def load_honor_data():
@@ -44,8 +44,27 @@ def save_honor_data(data):
     with open(HONOR_FILE, "w") as f:
         json.dump(data, f)
 
-# Load honor data on startup
 honor_stats = load_honor_data()
+
+# Judgements data structure: {guild_id: {user_id: {"uses": int, "reset": datetime, "banned": bool}}}
+judgements_data = {}
+
+def get_judgement_data(guild_id: int, user_id: int):
+    if guild_id not in judgements_data:
+        judgements_data[guild_id] = {}
+
+    if user_id not in judgements_data[guild_id]:
+        judgements_data[guild_id][user_id] = {
+            "uses": 0,
+            "reset": datetime.utcnow() + timedelta(days=1),
+            "banned": False,
+        }
+    else:
+        if datetime.utcnow() >= judgements_data[guild_id][user_id]["reset"]:
+            judgements_data[guild_id][user_id]["uses"] = 0
+            judgements_data[guild_id][user_id]["reset"] = datetime.utcnow() + timedelta(days=1)
+
+    return judgements_data[guild_id][user_id]
 
 @tasks.loop(minutes=4)
 async def keep_alive_task():
@@ -83,10 +102,227 @@ async def on_message(message):
         return
     await bot.process_commands(message)
 
-from datetime import datetime, timedelta
+@bot.command()
+async def honor(ctx, *args):
+    if len(args) == 0:
+        await ctx.send("No, you have to use `!honor check [user]` or `!honor @user amount`")
+        return
 
-# Track usage limits per user
-honor_uses = {}
+    # Special case for 'check'
+    if args[0].lower() == "check":
+        member = ctx.author
+        if len(args) > 1:
+            try:
+                member = await commands.MemberConverter().convert(ctx, args[1])
+            except:
+                await ctx.send("Could not find that member.")
+                return
+        points = honor_stats.get(member.id, 0)
+
+        emojiNum = abs(math.floor(points / 100))
+        currMessage = ""
+
+        for i in range(emojiNum):
+            if points > 0:
+                currMessage += "<:highhonor:1283293149644456071>"
+            elif points < 0:
+                currMessage += "<:lowhonor:1283293077884239913>"
+        for i in range(5 - emojiNum):
+            currMessage += "\u26AB"
+
+        await ctx.send(f"{member.display_name} has **{points} honor:** {currMessage}")
+        return
+
+    # For up/down commands (without mod role)
+    if len(args) == 2 and args[1].lower() in ("up", "low"):
+        try:
+            member = await commands.MemberConverter().convert(ctx, args[0])
+        except:
+            await ctx.send("Could not find that member.")
+            return
+
+        # Check if the command user is banned from judgments
+        jd = get_judgement_data(ctx.guild.id, ctx.author.id)
+        if jd["banned"]:
+            await ctx.send("You are banned from passing judgments.")
+            return
+
+        if jd["uses"] >= JUDGEMENT_LIMIT:
+            await ctx.send("You have used your daily judgment limit.")
+            return
+
+        if member.bot:
+            await ctx.send("Bots don't have honor.")
+            return
+
+        if ctx.author.id == member.id:
+            await ctx.send("You don't decide your own honor.")
+            return
+
+        # Modify honor by +1 or -1 depending on up or low
+        amount = 1 if args[1].lower() == "up" else -1
+
+        old = honor_stats.get(member.id, 0)
+        new_honor = old + amount
+        if new_honor > 500:
+            new_honor = 500
+            await ctx.send("**<:highhonor:1283293149644456071> Highest honor reached.**")
+        elif new_honor < -500:
+            new_honor = -500
+            await ctx.send("**<:lowhonor:1283293077884239913> Lowest honor reached.**")
+
+        honor_stats[member.id] = new_honor
+        save_honor_data(honor_stats)
+
+        emojiToUse = "<:highhonor:1283293149644456071> +" if amount > 0 else "<:lowhonor:1283293077884239913> "
+        await ctx.send(f"**{emojiToUse}{amount} honor** for {member.display_name}")
+
+        jd["uses"] += 1
+        return
+
+    # Otherwise, normal mod command with amount number
+    if len(args) < 2:
+        await ctx.send("No, you have to use `!honor @user amount`")
+        return
+
+    try:
+        member = await commands.MemberConverter().convert(ctx, args[0])
+        amount = int(args[1])
+    except Exception:
+        await ctx.send("Invalid format. Usage: `!honor @user amount`")
+        return
+
+    reason = " ".join(args[2:]) if len(args) > 2 else ""
+
+    if not ctx.author.guild_permissions.manage_roles:
+        await ctx.send("You don't decide who's honorable or not.")
+        return
+
+    if member.bot:
+        await ctx.send("Bots don't have honor.")
+        return
+
+    if ctx.author.id == member.id:
+        await ctx.send("You don't decide your own honor.")
+        return
+
+    old = honor_stats.get(member.id, 0)
+    new_honor = old + amount
+
+    if new_honor > 500:
+        honor_stats[member.id] = 500
+        await ctx.send("**<:highhonor:1283293149644456071> Highest honor reached.**")
+        save_honor_data(honor_stats)
+        return
+    elif new_honor < -500:
+        honor_stats[member.id] = -500
+        await ctx.send("**<:lowhonor:1283293077884239913> Lowest honor reached.**")
+        save_honor_data(honor_stats)
+        return
+    else:
+        honor_stats[member.id] = new_honor
+
+    save_honor_data(honor_stats)
+
+    emojiToUse = "<:highhonor:1283293149644456071> +" if amount > 0 else "<:lowhonor:1283293077884239913> "
+    if reason == "":
+        await ctx.send(f"**{emojiToUse}{amount} honor** for {member.display_name}")
+    else:
+        await ctx.send(f"**{emojiToUse}{amount} honor** for {member.display_name} for {reason}")
+
+@bot.command()
+async def leaderboard(ctx, *args):
+    limit = 5           # default
+    sort_order = "high" # default
+    skip_zero = False
+
+    for arg in args:
+        if arg.lower() == "skip":
+            skip_zero = True
+        elif arg.lower() in ("high", "low"):
+            sort_order = arg.lower()
+        elif arg.lower() == "all":
+            limit = None
+        else:
+            try:
+                parsed = int(arg)
+                if parsed > 0:
+                    limit = parsed
+            except ValueError:
+                pass  # ignore unknown args
+
+    members_with_honor = []
+    for user_id, honor in honor_stats.items():
+        member = ctx.guild.get_member(user_id)
+        if member:
+            if skip_zero and honor == 0:
+                continue
+            members_with_honor.append((member.display_name, honor))
+
+    if not members_with_honor:
+        await ctx.send("No leaderboard entries found for this server.")
+        return
+
+    reverse = sort_order == "high"
+    members_with_honor.sort(key=lambda x: x[1], reverse=reverse)
+
+    if limit is not None:
+        members_with_honor = members_with_honor[:limit]
+
+    leaderboard_msg = "**Leaderboard:**\n"
+    for i, (name, honor) in enumerate(members_with_honor, start=1):
+        emoji = "<:highhonor:1283293149644456071>" if honor >= 0 else "<:lowhonor:1283293077884239913>"
+        leaderboard_msg += f"{emoji} {i}. {name} for **{honor} honor**\n"
+
+    await ctx.send(leaderboard_msg)
+
+@bot.command()
+async def horsey(ctx):
+    await ctx.send("i <3 my horsey and my horsey <3 me")
+
+@bot.command()
+async def howtouse(ctx):
+    await ctx.send("Use `!honor @user amount` to raise or reduce someone's honor (mods only).\n Use `!honor check @user` to see someone's honor standing.\n Use !leaderboard to see the honor leaderboard.\n Non-mods can use `!honor @user up` or `!honor @user low` up to 5 times daily.")
+
+@bot.command(name="exporthonor")
+@commands.is_owner()
+async def export_honor(ctx):
+    if not honor_stats:
+        await ctx.send("No honor data to export.")
+        return
+
+    try:
+        with open(HONOR_FILE, "w") as f:
+            json.dump(honor_stats, f, indent=4)
+        await ctx.send("Here is the exported honor data:", file=discord.File(HONOR_FILE))
+    except Exception as e:
+        await ctx.send("Failed to export honor data.")
+        print("Export error:", e)
+
+@bot.command(name="resethonor")
+@commands.has_role("Mod")
+async def reset_honor(ctx):
+    message = await ctx.send("**Are you sure? This cannot be undone.** (React with <:highhonor:1283293149644456071> or <:lowhonor:1283293077884239913> to confirm/cancel)")
+    await message.add_reaction("<:highhonor:1283293149644456071>")
+    await message.add_reaction("<:lowhonor:1283293077884239913>")
+
+    def check(reaction, user):
+        return (
+            user == ctx.author
+            and str(reaction.emoji) in ["<:highhonor:1283293149644456071>", "<:lowhonor:1283293077884239913>"]
+            and reaction.message.id == message.id
+        )
+
+    try:
+        reaction, user = await bot.wait_for("reaction_add", timeout=30.0, check=check)
+        if str(reaction.emoji) == "<:highhonor:1283293149644456071>":
+            honor_stats.clear()
+            save_honor_data(honor_stats)
+            await ctx.send("All honor scores have been reset to **0**.")
+        else:
+            await ctx.send("Reset cancelled.")
+    except asyncio.TimeoutError:
+        await ctx.send("Timed out. Reset cancelled.")
 
 @bot.command()
 @commands.has_role("Mod")
@@ -100,7 +336,7 @@ async def edit(ctx, member: discord.Member):
     honor_points = honor_stats.get(member.id, 0)
 
     msg = f"""**{member.display_name}** - {emoji} **{honor_points} honor**
--#{JUDGEMENT_LIMIT - jd['count']} judgments remaining for today
+-#{JUDGEMENT_LIMIT - jd['uses']} judgments remaining for today
 
 **Actions:**
 1. Refill judgments
@@ -124,11 +360,11 @@ async def edit(ctx, member: discord.Member):
         emoji = str(reaction.emoji)
 
         if emoji == "1️⃣":
-            jd["count"] = 0
+            jd["uses"] = 0
             jd["reset"] = datetime.utcnow() + timedelta(days=1)
             await ctx.send(f"{member.display_name}'s judgments refilled.")
         elif emoji == "2️⃣":
-            jd["count"] = JUDGEMENT_LIMIT
+            jd["uses"] = JUDGEMENT_LIMIT
             await ctx.send(f"{member.display_name}'s judgments drained.")
         elif emoji == "3️⃣":
             jd["banned"] = not jd["banned"]
@@ -137,204 +373,6 @@ async def edit(ctx, member: discord.Member):
 
     except asyncio.TimeoutError:
         await ctx.send("Timeout. No changes made.")
-
-### HONOR COMMAND ###
-@bot.command()
-async def honor(ctx, *args):
-    if len(args) == 0:
-        await ctx.send("No, you have to use `!honor check [user]`, `!honor @user amount`, or `!honor @user up/down`")
-        return
-
-    if args[0].lower() == "check":
-        member = ctx.author
-        if len(args) > 1:
-            member = await commands.MemberConverter().convert(ctx, args[1])
-        points = honor_stats.get(member.id, 0)
-
-        emojiNum = abs(math.floor(points / 100))
-        currMessage = ""
-
-        for i in range(emojiNum):
-            if points > 0:
-                currMessage += "<:highhonor:1283293149644456071>"
-            elif points < 0:
-                currMessage += "<:lowhonor:1283293077884239913>"
-        for i in range(5 - emojiNum):
-            currMessage += "\u26AB"
-
-        jd = get_judgement_data(ctx.guild.id, member.id)
-        await ctx.send(f"{member.display_name} has **{points} honor:** {currMessage}\n-#{JUDGEMENT_LIMIT - jd['count']} judgments remaining for today")
-        return
-
-    if len(args) == 2 and args[1].lower() in ["up", "down"]:
-        try:
-            member = await commands.MemberConverter().convert(ctx, args[0])
-        except:
-            await ctx.send("Invalid user.")
-            return
-
-        if ctx.author.id == member.id:
-            await ctx.send("You can't judge yourself.")
-            return
-
-        if member.bot:
-            await ctx.send("Bots cannot be judged.")
-            return
-
-        jd = get_judgement_data(ctx.guild.id, ctx.author.id)
-        if jd["banned"]:
-            await ctx.send("You are banned from passing judgments.")
-            return
-        if jd["count"] >= JUDGEMENT_LIMIT:
-            await ctx.send("Your daily judgements are over.")
-            return
-
-        amount = 1 if args[1].lower() == "up" else -1
-        honor_stats[member.id] = honor_stats.get(member.id, 0) + amount
-        jd["count"] += 1
-        save_honor_data(honor_stats)
-
-        emojiToUse = "<:highhonor:1283293149644456071>" if amount > 0 else "<:lowhonor:1283293077884239913>"
-        await ctx.send(
-            f"**{emojiToUse}{amount} honor** for {member.display_name}\n"
-            f"-# {uses} judgements remaining today"
-        )
-        return
-
-    if len(args) < 2:
-        await ctx.send("No, you have to use `!honor @user amount`")
-        return
-
-    try:
-        member = await commands.MemberConverter().convert(ctx, args[0])
-        amount = int(args[1])
-    except Exception:
-        await ctx.send("Invalid format. Usage: `!honor @user amount`")
-        return
-
-    if not ctx.author.guild_permissions.manage_roles:
-        await ctx.send("You don't decide who's honorable or not.")
-        return
-
-    if member.bot:
-        await ctx.send("Bots don't have honor.")
-        return
-
-    if ctx.author.id == member.id:
-        await ctx.send("You don't decide your own honor.")
-        return
-
-    old = honor_stats.get(member.id, 0)
-    new_honor = max(min(old + amount, 500), -500)
-    honor_stats[member.id] = new_honor
-    save_honor_data(honor_stats)
-    if amount > 0:
-        emojiToUse = "<:highhonor:1283293149644456071> +"
-    else:
-        emojiToUse = "<:lowhonor:1283293077884239913> "
-    await ctx.send(f"**{emojiToUse}{abs(amount)} honor** for {member.display_name}")
-
-
-@bot.command()
-async def leaderboard(ctx, *args):
-    limit = 5           # default
-    sort_order = "high" # default
-    skip_zero = False
-
-    for arg in args:
-        if arg.lower() == "skip":
-            skip_zero = True
-        elif arg.lower() in ("high", "low"):
-            sort_order = arg.lower()
-        elif arg.lower() == "all":
-            limit = None
-        else:
-            try:
-                parsed = int(arg)
-                if parsed > 0:
-                    limit = parsed
-            except ValueError:
-                pass  # ignore unknown args
-
-    # Filter honor_stats for members in this guild
-    members_with_honor = []
-    for user_id, honor in honor_stats.items():
-        member = ctx.guild.get_member(user_id)
-        if member:
-            if skip_zero and honor == 0:
-                continue
-            members_with_honor.append((member.display_name, honor))
-
-    if not members_with_honor:
-        await ctx.send("No leaderboard entries found for this server.")
-        return
-
-    # Sort the list
-    reverse = sort_order == "high"
-    members_with_honor.sort(key=lambda x: x[1], reverse=reverse)
-
-    if limit is not None:
-        members_with_honor = members_with_honor[:limit]
-
-    leaderboard_msg = "**Leaderboard:**\n"
-    for i, (name, honor) in enumerate(members_with_honor, start=1):
-        emoji = "<:highhonor:1283293149644456071>" if honor >= 0 else "<:lowhonor:1283293077884239913>"
-        leaderboard_msg += f"{emoji} {i}. {name} for **{honor} honor**\n"
-
-    await ctx.send(leaderboard_msg)
-
-@bot.command()
-async def horsey(ctx):
-    await ctx.send("i <3 my horsey and my horsey <3 me")
-
-@bot.command()
-async def howtouse(ctx):
-    await ctx.send("Use `!honor @user amount` to raise or reduce someone's honor (mods only).\n Use `!honor check @user` to see someone's honor standing.\n Use !leaderboard to see the honor leaderboard.")
-
-@bot.command(name="exporthonor")
-@commands.is_owner()
-async def export_honor(ctx):
-    if not honor_stats:
-        await ctx.send("No honor data to export.")
-        return
-
-    try:
-        # Dump honor stats into a JSON file
-        with open("honor_data.json", "w") as f:
-            json.dump(honor_stats, f, indent=4)
-
-        await ctx.send("Here is the exported honor data:", file=discord.File("honor_data.json"))
-
-    except Exception as e:
-        await ctx.send("Failed to export honor data.")
-        print("Export error:", e)
-
-
-@bot.command(name="resethonor")
-@commands.has_role("Mod")
-async def reset_honor(ctx):
-    message = await ctx.send("**Are you sure? This cannot be undone.** (React with <:highhonor:1283293149644456071> or <:lowhonor:1283293077884239913> to confirm/cancel)")
-    await message.add_reaction("<:highhonor:1283293149644456071>")
-    await message.add_reaction("<:lowhonor:1283293077884239913>")
-
-    def check(reaction, user):
-        return (
-            user == ctx.author
-            and str(reaction.emoji) in ["<:highhonor:1283293149644456071>", "<:lowhonor:1283293077884239913>"]
-            and reaction.message.id == message.id
-        )
-
-    try:
-        reaction, user = await bot.wait_for("reaction_add", timeout=30.0, check=check)
-
-        if str(reaction.emoji) == "<:highhonor:1283293149644456071>":
-            honor_stats.clear()
-            save_honor_data(honor_stats)
-            await ctx.send("All honor scores have been reset to **0**.")
-        else:
-            await ctx.send("Reset cancelled.")
-    except asyncio.TimeoutError:
-        await ctx.send("Timed out. Reset cancelled.")
 
 @honor.error
 async def honor_error(ctx, error):
