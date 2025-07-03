@@ -336,7 +336,7 @@ async def edit(ctx, member: discord.Member):
     honor_points = honor_stats.get(member.id, 0)
 
     msg = f"""**{member.display_name}** - {emoji} **{honor_points} honor**
--#{JUDGEMENT_LIMIT - jd['uses']} judgments remaining for today
+-# {JUDGEMENT_LIMIT - jd['uses']} judgments remaining for today
 
 **Actions:**
 1. Refill judgments
