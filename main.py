@@ -344,9 +344,9 @@ async def edit(ctx, member: discord.Member):
 3. {"Unban" if jd['banned'] else "Ban"} from passing judgments"""
 
     response = await ctx.send(msg)
-    await response.add_reaction("1️⃣")
-    await response.add_reaction("2️⃣")
-    await response.add_reaction("3️⃣")
+    for emoji in ["1️⃣", "2️⃣", "3️⃣"]:
+        await response.add_reaction(emoji)
+        await asyncio.sleep(0.5)  # 0.5 sec pause helps avoid rate limit
 
     def check(reaction, user):
         return (
