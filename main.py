@@ -159,9 +159,8 @@ async def honor(ctx, *args):
         remaining = 5 - (uses + 1)
 
         await ctx.send(
-            f"{emoji} {'+1' if amount > 0 else '-1'} honor for {target.display_name}\n"
-            f"**New Honor:** {new_honor}\n"
-            f"**Uses left today:** {remaining}/5"
+            **f"{emoji} {'+1' if amount > 0 else '-1'} honor** for {target.display_name}\n"
+            f"-#{remaining} more judgements allowed for today"
         )
         return
 
