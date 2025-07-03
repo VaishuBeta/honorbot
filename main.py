@@ -103,7 +103,7 @@ async def honor(ctx, *args):
                 currMessage += "<:highhonor:1283293149644456071>"
             elif points < 0:
                 currMessage += "<:lowhonor:1283293077884239913>"
-        for i in range(10 - emojiNum):
+        for i in range(5 - emojiNum):
             currMessage += "\u26AB"
 
         await ctx.send(f"{member.display_name} has **{points} honor:** {currMessage}")
