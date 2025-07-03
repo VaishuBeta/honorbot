@@ -83,40 +83,97 @@ async def on_message(message):
         return
     await bot.process_commands(message)
 
+from datetime import datetime, timedelta
+
+# Track usage limits per user
+honor_uses = {}
+
 @bot.command()
 async def honor(ctx, *args):
     if len(args) == 0:
-        await ctx.send("No, you have to use `!honor check [user]` or `!honor @user amount`")
+        await ctx.send("No, you have to use `!honor check [user]`, `!honor @user amount`, or `!honor @user up/low`.")
         return
 
+    # ===== CHECK HONOR =====
     if args[0].lower() == "check":
         member = ctx.author
         if len(args) > 1:
-            member = await commands.MemberConverter().convert(ctx, args[1])
-        points = honor_stats.get(member.id, 0)
+            try:
+                member = await commands.MemberConverter().convert(ctx, args[1])
+            except:
+                await ctx.send("Couldn't identify the user.")
+                return
 
+        points = honor_stats.get(member.id, 0)
         emojiNum = abs(math.floor(points / 100))
         currMessage = ""
 
-        for i in range(emojiNum):
+        for _ in range(emojiNum):
             if points > 0:
                 currMessage += "<:highhonor:1283293149644456071>"
             elif points < 0:
                 currMessage += "<:lowhonor:1283293077884239913>"
-        for i in range(5 - emojiNum):
+        for _ in range(5 - emojiNum):
             currMessage += "\u26AB"
 
         await ctx.send(f"{member.display_name} has **{points} honor:** {currMessage}")
         return
 
+    # ===== UP/LOW FROM NON-MOD USERS =====
+    if args[1].lower() in ("up", "low"):
+        if any(role.name.lower() == "mod" for role in ctx.author.roles):
+            await ctx.send("Mods must use `!honor @user amount`.")
+            return
+
+        try:
+            target = await commands.MemberConverter().convert(ctx, args[0])
+        except:
+            await ctx.send("Couldn't identify the user.")
+            return
+
+        if target.bot or target.id == ctx.author.id:
+            await ctx.send("You can't use this on yourself or bots.")
+            return
+
+        user_id = ctx.author.id
+        now = datetime.utcnow()
+        uses, last_reset = honor_uses.get(user_id, (0, now))
+
+        if now - last_reset > timedelta(days=1):
+            uses = 0
+            last_reset = now
+
+        if uses >= 5:
+            await ctx.send("You've already used your 5 daily honor commands.")
+            return
+
+        amount = 1 if args[1].lower() == "up" else -1
+        honor_uses[user_id] = (uses + 1, last_reset)
+
+        old = honor_stats.get(target.id, 0)
+        new_honor = max(-500, min(500, old + amount))
+        honor_stats[target.id] = new_honor
+        save_honor_data(honor_stats)
+
+        emoji = "<:highhonor:1283293149644456071>" if amount > 0 else "<:lowhonor:1283293077884239913>"
+        remaining = 5 - (uses + 1)
+
+        await ctx.send(
+            f"{emoji} {'+1' if amount > 0 else '-1'} honor for {target.display_name}\n"
+            f"**New Honor:** {new_honor}\n"
+            f"**Uses left today:** {remaining}/5"
+        )
+        return
+
+    # ===== MOD HONOR ASSIGNMENT =====
     if len(args) < 2:
-        await ctx.send("No, you have to use `!honor @user amount`")
+        await ctx.send("No, you have to use `!honor check`, `!honor @user amount`, or `!honor @user up/low`")
         return
 
     try:
         member = await commands.MemberConverter().convert(ctx, args[0])
         amount = int(args[1])
-    except Exception:
+    except:
         await ctx.send("Invalid format. Usage: `!honor @user amount`")
         return
 
@@ -135,21 +192,8 @@ async def honor(ctx, *args):
         return
 
     old = honor_stats.get(member.id, 0)
-    new_honor = old + amount
-
-    if new_honor > 500:
-        honor_stats[member.id] = 500
-        await ctx.send("**<:highhonor:1283293149644456071> Highest honor reached.**")
-        save_honor_data(honor_stats)
-        return
-    elif new_honor < -500:
-        honor_stats[member.id] = -500
-        await ctx.send("**<:lowhonor:1283293077884239913> Lowest honor reached.**")
-        save_honor_data(honor_stats)
-        return
-    else:
-        honor_stats[member.id] = new_honor
-
+    new_honor = max(-500, min(500, old + amount))
+    honor_stats[member.id] = new_honor
     save_honor_data(honor_stats)
 
     emojiToUse = "<:highhonor:1283293149644456071> +" if amount > 0 else "<:lowhonor:1283293077884239913> "
