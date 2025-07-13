@@ -134,14 +134,12 @@ async def honor(ctx, *args):
         return
 
     # For up/down commands (without mod role)
-    if len(args) == 2 and args[1].lower() in ("up", "down"):
+    if len(args) == 2 and args[1].lower() in ("up", "low"):
         try:
             member = await commands.MemberConverter().convert(ctx, args[0])
-        except commands.BadArgument:
-            member = discord.utils.get(ctx.guild.members, mention=args[0])  # fallback
-            if not member:
-                await ctx.send("Could not find that member.")
-                return
+        except:
+            await ctx.send("Could not find that member.")
+            return
 
         # Check if the command user is banned from judgments
         jd = get_judgement_data(ctx.guild.id, ctx.author.id)
@@ -241,7 +239,7 @@ async def leaderboard(ctx, *args):
     for arg in args:
         if arg.lower() == "skip":
             skip_zero = True
-        elif arg.lower() in ("high", "down"):
+        elif arg.lower() in ("high", "low"):
             sort_order = arg.lower()
         elif arg.lower() == "all":
             limit = None
