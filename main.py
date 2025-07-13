@@ -56,11 +56,11 @@ def get_judgement_data(guild_id: int, user_id: int):
     if user_id not in judgements_data[guild_id]:
         judgements_data[guild_id][user_id] = {
             "uses": 0,
-            "reset": datetime.utcnow() + timedelta(days=1),
+            "reset": datetime.now(datetime.UTC) + timedelta(days=1),
             "banned": False,
         }
     else:
-        if datetime.utcnow() >= judgements_data[guild_id][user_id]["reset"]:
+        if datetime.now(datetime.UTC) >= judgements_data[guild_id][user_id]["reset"]:
             judgements_data[guild_id][user_id]["uses"] = 0
             judgements_data[guild_id][user_id]["reset"] = datetime.utcnow() + timedelta(days=1)
 
