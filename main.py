@@ -159,7 +159,7 @@ async def honor(ctx, *args):
             await ctx.send("You don't decide your own honor.")
             return
 
-        print("made it past the exceptions")
+        await ctx.send("past the exceptions")
         
         # Modify honor by +1 or -1 depending on up or down
         amount = 1 if args[1].lower() == "up" else -1
