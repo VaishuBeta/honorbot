@@ -29,6 +29,7 @@ intents.members = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 HONOR_FILE = "honor_data.json"
+JUDGEMENTS_FILE = "judgements_data.json"
 JUDGEMENT_LIMIT = 5  # max judgments per day
 
 # Load honor data from file
@@ -47,24 +48,77 @@ def save_honor_data(data):
 honor_stats = load_honor_data()
 
 # Judgements data structure: {guild_id: {user_id: {"uses": int, "reset": datetime, "banned": bool}}}
-judgements_data = {}
+# Load judgments data from file
+def load_judgements_data():
+    if os.path.isfile(JUDGEMENTS_FILE):
+        with open(JUDGEMENTS_FILE, "r") as f:
+            raw = json.load(f)
+            return {
+                int(gid): {
+                    int(uid): {
+                        "uses": v.get("uses", 0),
+                        "reset": datetime.fromisoformat(v.get("reset")),
+                        "banned": v.get("banned", False),
+                    }
+                    for uid, v in users.items()
+                }
+                for gid, users in raw.items()
+            }
+    return {}
+
+# Save judgments data to file
+def save_judgements_data(data):
+    serializable = {
+        str(gid): {
+            str(uid): {
+                "uses": v["uses"],
+                "reset": v["reset"].isoformat(),
+                "banned": v["banned"],
+            }
+            for uid, v in users.items()
+        }
+        for gid, users in data.items()
+    }
+    with open(JUDGEMENTS_FILE, "w") as f:
+        json.dump(serializable, f, indent=4)
 
 def get_judgement_data(guild_id: int, user_id: int):
+    now = datetime.now(datetime.UTC)
+    reset_time = now + timedelta(days=1)
+
     if guild_id not in judgements_data:
         judgements_data[guild_id] = {}
 
-    if user_id not in judgements_data[guild_id]:
+    user_data = judgements_data[guild_id].get(user_id)
+
+    if not user_data:
         judgements_data[guild_id][user_id] = {
             "uses": 0,
-            "reset": datetime.now(datetime.UTC) + timedelta(days=1),
+            "reset": reset_time,
             "banned": False,
         }
     else:
-        if datetime.now(datetime.UTC) >= judgements_data[guild_id][user_id]["reset"]:
+        if now >= user_data["reset"]:
             judgements_data[guild_id][user_id]["uses"] = 0
-            judgements_data[guild_id][user_id]["reset"] = datetime.utcnow() + timedelta(days=1)
+            judgements_data[guild_id][user_id]["reset"] = reset_time
 
+    save_judgements_data(judgements_data)
     return judgements_data[guild_id][user_id]
+
+judgements_data = load_judgements_data()
+
+@bot.command(name="exportjudgements")
+@commands.is_owner()
+async def export_judgements(ctx):
+    if not os.path.isfile(JUDGEMENTS_FILE):
+        await ctx.send("No judgments data to export.")
+        return
+
+    try:
+        await ctx.send("Here is the exported judgments data:", file=discord.File(JUDGEMENTS_FILE))
+    except Exception as e:
+        await ctx.send("Failed to export judgments data.")
+        print("ExportJudgements error:", e)
 
 @tasks.loop(minutes=4)
 async def keep_alive_task():
@@ -140,7 +194,7 @@ async def honor(ctx, *args):
         except:
             await ctx.send("Could not find that member.")
             return
-        '''# Check if the command user is banned from judgments
+        # Check if the command user is banned from judgments
         jd = get_judgement_data(ctx.guild.id, ctx.author.id)
         if jd["banned"]:
             await ctx.send("You are banned from passing judgments.")
@@ -156,7 +210,7 @@ async def honor(ctx, *args):
 
         if ctx.author.id == member.id:
             await ctx.send("You don't decide your own honor.")
-            return'''
+            return
 
         await ctx.send("past the exceptions")
         
