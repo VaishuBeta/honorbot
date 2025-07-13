@@ -6,7 +6,7 @@ import asyncio
 import json
 import threading
 from aiohttp import web
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 ######## WEB SERVICE FOR RENDER ########
 async def handle(request):
@@ -83,7 +83,7 @@ def save_judgements_data(data):
         json.dump(serializable, f, indent=4)
 
 def get_judgement_data(guild_id: int, user_id: int):
-    now = datetime.now(datetime.UTC)
+    now = datetime.now(timezone.utc)
     reset_time = now + timedelta(days=1)
 
     if guild_id not in judgements_data:
