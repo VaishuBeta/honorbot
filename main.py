@@ -423,9 +423,11 @@ async def edit(ctx, member: discord.Member):
             jd["banned"] = not jd["banned"]
             action = "unbanned" if not jd["banned"] else "banned"
             await ctx.send(f"{member.display_name} has been {action} from passing judgments.")
+        return
 
     except asyncio.TimeoutError:
         await ctx.send("Timeout. No changes made.")
+        return
 
 @honor.error
 async def honor_error(ctx, error):
