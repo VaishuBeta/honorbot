@@ -188,7 +188,7 @@ async def honor(ctx, *args):
         return
 
     # For up/down commands (without mod role)
-    if len(args) == 2 and args[1].lower() in ("up", "low"):
+    if len(args) == 2 and args[1].lower() in ("up", "down"):
         try:
             member = await commands.MemberConverter().convert(ctx, args[0])
         except:
