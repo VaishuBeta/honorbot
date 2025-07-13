@@ -196,6 +196,7 @@ async def honor(ctx, *args):
             return
         # Check if the command user is banned from judgments
         jd = get_judgement_data(ctx.guild.id, ctx.author.id)
+        await ctx.send("past get_judgement.")
         if jd["banned"]:
             await ctx.send("You are banned from passing judgments.")
             return
@@ -203,7 +204,8 @@ async def honor(ctx, *args):
         if jd["uses"] >= JUDGEMENT_LIMIT:
             await ctx.send("You have used your daily judgment limit.")
             return
-
+            
+        await ctx.send("past jd checks")
         if member.bot:
             await ctx.send("Bots don't have honor.")
             return
