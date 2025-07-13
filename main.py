@@ -135,12 +135,13 @@ async def honor(ctx, *args):
 
     # For up/down commands (without mod role)
     if len(args) == 2 and args[1].lower() in ("up", "low"):
+        await ctx.send("Entered the main block")
         try:
             member = await commands.MemberConverter().convert(ctx, args[0])
         except:
             await ctx.send("Could not find that member.")
             return
-
+        await ctx.send("identified the member")
         # Check if the command user is banned from judgments
         jd = get_judgement_data(ctx.guild.id, ctx.author.id)
         if jd["banned"]:
