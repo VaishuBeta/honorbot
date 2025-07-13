@@ -137,9 +137,11 @@ async def honor(ctx, *args):
     if len(args) == 2 and args[1].lower() in ("up", "down"):
         try:
             member = await commands.MemberConverter().convert(ctx, args[0])
-        except:
-            await ctx.send("Could not find that member.")
-            return
+        except commands.BadArgument:
+            member = discord.utils.get(ctx.guild.members, mention=args[0])  # fallback
+            if not member:
+                await ctx.send("Could not find that member.")
+                return
 
         # Check if the command user is banned from judgments
         jd = get_judgement_data(ctx.guild.id, ctx.author.id)
