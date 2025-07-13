@@ -134,7 +134,7 @@ async def honor(ctx, *args):
         return
 
     # For up/down commands (without mod role)
-    if len(args) == 2 and args[1].lower() in ("up", "low"):
+    if len(args) == 2 and args[1].lower() in ("up", "down"):
         try:
             member = await commands.MemberConverter().convert(ctx, args[0])
         except:
@@ -159,7 +159,7 @@ async def honor(ctx, *args):
             await ctx.send("You don't decide your own honor.")
             return
 
-        # Modify honor by +1 or -1 depending on up or low
+        # Modify honor by +1 or -1 depending on up or down
         amount = 1 if args[1].lower() == "up" else -1
 
         old = honor_stats.get(member.id, 0)
@@ -239,7 +239,7 @@ async def leaderboard(ctx, *args):
     for arg in args:
         if arg.lower() == "skip":
             skip_zero = True
-        elif arg.lower() in ("high", "low"):
+        elif arg.lower() in ("high", "down"):
             sort_order = arg.lower()
         elif arg.lower() == "all":
             limit = None
