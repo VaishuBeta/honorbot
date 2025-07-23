@@ -247,7 +247,7 @@ async def honor(ctx, *args):
 
     reason = " ".join(args[2:]) if len(args) > 2 else ""
 
-    if not ctx.author.guild_permissions.manage_roles:
+    if not ctx.author.guild_permissions.administrator:
         await ctx.send("You don't decide who's honorable or not.")
         return
 
